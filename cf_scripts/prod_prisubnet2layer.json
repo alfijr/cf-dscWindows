@@ -1,0 +1,53 @@
+
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+        "PriSubnetCidrBlock": {
+            "Type" : "String",
+            "Default" : "10.0.2.0/24",
+            "Description" : "IP Ranges (CIDR) for General Public Subnet"
+        },
+        "AZs" : {
+            "Type" : "CommaDelimitedList",
+            "Default" : "us-west-2a, us-west-2b",
+            "Description" : "The list of active AZ's"
+        },
+        "VpcId" : {
+            "Type" : "String"
+        }  
+    
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+        "basesubnet3": {
+          "Type": "AWS::EC2::Subnet",
+          "Properties": {
+            "VpcId": { "Ref" : "VpcId" },
+            "CidrBlock":  {"Ref": "PriSubnetCidrBlock"},
+            "AvailabilityZone": { "Fn::Select" : [ "1", {"Ref": "AZs"} ] },
+            "Tags": [
+                {
+                    "Key": "Name", 
+                    "Value" : "ApplicationPrivateSubnet2"
+                }
+            ]
+          }
+        }
+    },
+    "Outputs": {
+        "PriSubnet2Id" : {
+            "Value" : { "Ref" : "basesubnet3"},
+            "Description" : "ID for Subnet3"
+        }
+    }
+}
+    

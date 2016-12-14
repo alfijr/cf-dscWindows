@@ -1,0 +1,104 @@
+
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+        "AZs" : {
+            "Type" : "CommaDelimitedList"
+        },
+        "Subnets" : {
+            "Type" : "CommaDelimitedList"
+        },
+        "ElbsecGroup" : {
+            "Type" : "String"
+        },
+        "AppInstanceType": {
+            "Type": "String"
+        },
+        "AppInstanceId" : {
+            "Type": "String"
+        },
+        "SSHLocation" : {  
+            "Type": "String" 
+        },
+        "InstsKey" : {
+            "Type": "String"
+        },
+        "VpcId" : {
+            "Type" : "String"
+        }
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+        "loadBalancer" : {
+            "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            "Properties": {
+                "Scheme" : "internet-facing",
+                "Subnets" : [{
+                        "Fn::Select" : [ "0", {"Ref": "Subnets"} ]
+                    },
+                    {
+                        "Fn::Select" : [ "1", {"Ref": "Subnets"}]
+                    }],
+                "LoadBalancerAttributes" : [
+                        { "Key" : "idle_timeout.timeout_seconds", "Value" : "50" }
+                    ],
+                    "SecurityGroups": [{"Ref": "ElbsecGroup"}],
+                    "Tags" : [
+                        { "Key" : "Name", "Value" : "ALB" },
+                        { "Key" : "Descrption", "Value" : "Load balancer 2.0" }
+                    ]
+                }
+        },
+        "TargetGroup" : {
+            "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties" : {
+                "HealthCheckIntervalSeconds": 30,
+                "HealthCheckProtocol": "HTTP",
+                "HealthCheckTimeoutSeconds": 10,
+                "HealthyThresholdCount": 4,
+                "Matcher" : {
+                "HttpCode" : "200"
+                },
+                "Name": "MyTargets",
+                "Port": 80,
+                "Protocol": "HTTP",
+                "TargetGroupAttributes": [{
+                "Key": "deregistration_delay.timeout_seconds",
+                "Value": "20"
+                }],
+                "Targets": [{"Id": {"Ref": "AppInstanceId"}, "Port": 80}],
+                "UnhealthyThresholdCount": 3,
+                "VpcId": {"Ref" : "VpcId" },
+                "Tags" : [
+                { "Key" : "key", "Value" : "value" },
+                { "Key" : "key2", "Value" : "value2" }
+                ]
+            }
+        },
+        "TargetGroupListner": {
+            "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+            "Properties" : {
+                "DefaultActions" : [{ 
+                    "Type": "forward",
+                    "TargetGroupArn": { "Ref": "TargetGroup" }
+                }],
+                "LoadBalancerArn" : {"Ref" : "loadBalancer"},
+                "Port" : "80",
+                "Protocol" : "HTTP"
+            }
+        }
+    },
+    "Outputs": {
+
+    }
+}
+    

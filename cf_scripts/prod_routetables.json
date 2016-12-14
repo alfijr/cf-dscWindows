@@ -1,0 +1,136 @@
+
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+        "privatesubnet" : {
+            "Type": "String"
+        },
+        "privatesubnet2": {
+            "Type": "String"
+        },
+        "pubsubnet": {
+            "Type": "String"
+        },
+        "EipAllocationId": {
+            "Type": "String"
+        },
+        "PubSubnetCidrBlock": {
+            "Type" : "String",
+            "Default" : "10.0.0.0/24",
+            "Description" : "IP Ranges (CIDR) for General Public Subnet"
+        },
+        "AZs" : {
+            "Type" : "CommaDelimitedList",
+            "Default" : "us-west-2a, us-west-2b",
+            "Description" : "The list of active AZ's"
+        },
+        "VpcId" : {
+            "Type" : "String"
+        }    
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+        "baseIGW" : {
+            "Type" : "AWS::EC2::InternetGateway",
+            "Properties" : {
+                "Tags" : [ {"Key" : "Name", "Value" : "VPCGateway"}]
+            }
+        },
+        "baseIGWConn" : {
+            "Type" : "AWS::EC2::VPCGatewayAttachment",
+            "Properties" : {
+                "InternetGatewayId" : { "Ref" : "baseIGW" },
+                "VpcId" : { "Ref" : "VpcId" }
+            },
+            "DependsOn" : "baseIGW"
+        },
+        "baserouteTable": {
+          "Type": "AWS::EC2::RouteTable",
+          "Properties": {
+            "VpcId": {"Ref" : "VpcId"},
+            "Tags": [
+                {
+                    "Key": "Name", 
+                    "Value" : "ApplicationRouteTable"
+                }
+            ]
+          },
+            "DependsOn" : "baseIGWConn"
+        }, 
+        "baseRoute": {
+          "Type": "AWS::EC2::Route",
+          "DependsOn" : ["baseIGWConn","baserouteTable"],
+          "Properties": {
+            "RouteTableId": {"Ref" : "baserouteTable"},
+            "DestinationCidrBlock": "0.0.0.0/0",
+            "GatewayId": {"Ref" : "baseIGW"}
+          }
+        },
+        "baseRouteAssoc" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref" : "baserouteTable"},
+                "SubnetId" : {"Ref" : "pubsubnet" }
+            },
+            "DependsOn" : "baseRoute"
+        },
+        "natGateway" : {
+            "Type" : "AWS::EC2::NatGateway",
+            "Properties" : {
+            "AllocationId" : {"Ref": "EipAllocationId"},
+            "SubnetId" : {"Ref" : "pubsubnet"}
+            },
+            "DependsOn" : "baseRouteAssoc"
+        },
+        "privateRouteTable": {
+          "Type": "AWS::EC2::RouteTable",
+          "Properties": {
+            "VpcId": {"Ref" : "VpcId"},
+            "Tags": [
+                {
+                    "Key": "Name", 
+                    "Value" : "ApplicationRouteTable"
+                }
+            ]
+          }
+        }, 
+        "privateRoute": {
+          "Type": "AWS::EC2::Route",
+          "DependsOn" : "privateRouteTable",
+          "Properties": {
+            "RouteTableId": {"Ref" : "privateRouteTable"},
+            "DestinationCidrBlock": "0.0.0.0/0",
+            "NatGatewayId": {"Ref" : "natGateway"}
+          }
+        },
+        "privateRouteAssoc" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref" : "privateRouteTable"},
+                "SubnetId" : {"Ref" : "privatesubnet" }
+            },
+            "DependsOn" : "privateRoute"
+        },
+        "privateRouteAssoc2" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref" : "privateRouteTable"},
+                "SubnetId" : {"Ref" : "privatesubnet2" }
+            },
+            "DependsOn" : "privateRoute"
+        }
+    },
+    "Outputs": {
+
+    }
+}
+    

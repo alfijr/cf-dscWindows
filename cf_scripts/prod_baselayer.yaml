@@ -1,0 +1,324 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description:
+  Base Cloudformation template. Required for nested resources
+
+Parameters:
+    EnvType:
+        Description: "Environment Type"
+        Default: prod
+        Type: String
+        AllowedValues: 
+            - dev
+            - prod
+        ConstraintDescription: "Must specify dev, or prod."
+    SSHLocation:
+        Description: "The IP address range that can be used to SSH to the EC2 instances"
+        Type: String
+        MinLength: 9
+        MaxLength: 18
+        Default: 0.0.0.0/0
+        # AllowedPattern: (\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})
+        # ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x"
+    AppInstanceType:
+        Description: "App Server EC2 instance type"
+        Type: String
+        Default: t2.medium
+        AllowedValues: 
+            - t1.micro    
+            - t2.nano
+            - t2.micro
+            - t2.small    
+            - t2.medium   
+            - t2.large
+            - m1.small    
+            - m1.medium   
+            - m1.large
+            - m1.xlarge   
+            - m2.xlarge   
+            - m2.2xlarge
+            - m2.4xlarge  
+            - m3.medium   
+            - m3.large
+            - m3.xlarge   
+            - m3.2xlarge  
+            - m4.large
+            - m4.xlarge   
+            - m4.2xlarge  
+            - m4.4xlarge
+            - m4.10xlarge 
+            - c1.medium   
+            - c1.xlarge
+            - c3.large    
+            - c3.xlarge   
+            - c3.2xlarge
+            - c3.4xlarge  
+            - c3.8xlarge  
+            - c4.large
+            - c4.xlarge   
+            - c4.2xlarge  
+            - c4.4xlarge
+            - c4.8xlarge  
+            - g2.2xlarge  
+            - g2.8xlarge
+            - r3.large    
+            - r3.xlarge   
+            - r3.2xlarge
+            - r3.4xlarge  
+            - r3.8xlarge  
+            - i2.xlarge
+            - i2.2xlarge  
+            - i2.4xlarge  
+            - i2.8xlarge
+            - d2.xlarge   
+            - d2.2xlarge  
+            - d2.4xlarge
+            - d2.8xlarge  
+            - hi1.4xlarge 
+            - hs1.8xlarge
+            - cr1.8xlarge 
+            - cc2.8xlarge 
+            - cg1.4xlarge
+        ConstraintDescription: "must be a valid EC2 instance type."
+    AppInstanceId : 
+        Description : "Instance Image Id for Application Server"
+        Default : ami-24e64944
+        Type : String
+    DbInstanceType:
+        Description: "Database Server EC2 instance type"
+        Type: String
+        Default: t2.medium
+        AllowedValues: 
+            - t1.micro    
+            - t2.nano
+            - t2.micro
+            - t2.small    
+            - t2.medium   
+            - t2.large
+            - m1.small    
+            - m1.medium   
+            - m1.large
+            - m1.xlarge   
+            - m2.xlarge   
+            - m2.2xlarge
+            - m2.4xlarge  
+            - m3.medium   
+            - m3.large
+            - m3.xlarge   
+            - m3.2xlarge  
+            - m4.large
+            - m4.xlarge   
+            - m4.2xlarge  
+            - m4.4xlarge
+            - m4.10xlarge 
+            - c1.medium   
+            - c1.xlarge
+            - c3.large    
+            - c3.xlarge   
+            - c3.2xlarge
+            - c3.4xlarge  
+            - c3.8xlarge  
+            - c4.large
+            - c4.xlarge   
+            - c4.2xlarge  
+            - c4.4xlarge
+            - c4.8xlarge  
+            - g2.2xlarge  
+            - g2.8xlarge
+            - r3.large    
+            - r3.xlarge   
+            - r3.2xlarge
+            - r3.4xlarge  
+            - r3.8xlarge  
+            - i2.xlarge
+            - i2.2xlarge  
+            - i2.4xlarge  
+            - i2.8xlarge
+            - d2.xlarge   
+            - d2.2xlarge  
+            - d2.4xlarge
+            - d2.8xlarge  
+            - hi1.4xlarge 
+            - hs1.8xlarge
+            - cr1.8xlarge 
+            - cc2.8xlarge 
+            - cg1.4xlarge
+        ConstraintDescription: "must be a valid EC2 instance type."
+    DbInstanceId :
+        Description : "Instance Image Id for Database Server"
+        Default : ami-24e64944
+        Type : String
+    VpcName: 
+        Default: elevenOs_Production_VPC
+        Description : VPC Name
+        Type: String
+   
+    VpcCidrBlock: 
+        Default: 10.0.0.0/16
+        Description : VPC CIDR Block
+        Type: String
+    AZs: 
+        Type : CommaDelimitedList
+        Default : us-west-2a, us-west-2b
+        Description : "The list of active AZ's"
+        
+    SubnetCidrBlock: 
+        Type : CommaDelimitedList
+        Default : 10.0.0.0/24, 10.0.1.0/24, 10.0.2.0/24,
+        Description : "IP Ranges (CIDR) for General Public Subnets"
+        
+    InstsKey : 
+        Default: elevenOstestkey
+        Description : Pem file
+        Type: String
+      
+    AnyCidrBlock: 
+        Default: 0.0.0.0/0
+        Description : Universal CIDR Block
+        Type: String   
+
+Resources:
+    hWaitSandboxWaiter : 
+        Type : AWS::CloudFormation::WaitConditionHandle
+    vpcstack : 
+        Type : AWS::CloudFormation::Stack
+        Properties :
+            Parameters :  
+                EnvType : 
+                    !Ref EnvType 
+                VpcName: 
+                    !Ref VpcName 
+                VpcCidrBlock: 
+                    !Ref VpcCidrBlock
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref "AZs"]]]                   
+                SubnetCidrBlock : 
+                    !Join [ ",", [ !Select [ "0", !Ref SubnetCidrBlock ], !Select [ "1", !Ref SubnetCidrBlock ], !Select [ "2", !Ref SubnetCidrBlock]]]
+            Tags : 
+                - Key : Name
+                  Value : Base Template
+            TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_vpclayer.json
+    EIPstack:
+        Type:  AWS::EC2::EIP
+        Properties: 
+            Domain: vpc
+        DependsOn: vpcstack
+    publicsubnetstack: 
+        Type: AWS::CloudFormation::Stack
+        Properties: 
+            Parameters: 
+                EipAllocationId : !GetAtt EIPstack.AllocationId
+                PubSubnetCidrBlock :
+                    !Select [ "0", !Ref SubnetCidrBlock ]
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
+                VpcId : 
+                    !GetAtt vpcstack.Outputs.VpcId
+            TemplateURL: https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_pubsubnetlayer.json
+            TimeoutInMinutes: 60
+        DependsOn: EIPstack
+    privatesubnet1stack : 
+        Type : AWS::CloudFormation::Stack
+        Properties :
+            Parameters : 
+                PriSubnetCidrBlock : 
+                    !Select [ "1", !Ref SubnetCidrBlock ]               
+                AZs :  
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
+                VpcId :
+                    !GetAtt vpcstack.Outputs.VpcId 
+            TemplateURL: https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_prisubnet1layer.json
+            TimeoutInMinutes: 60
+    privatesubnet2stack: 
+        Type: AWS::CloudFormation::Stack
+        Properties : 
+            Parameters : 
+                PriSubnetCidrBlock :    
+                    !Select [ "2", !Ref SubnetCidrBlock ]
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
+                VpcId : !GetAtt vpcstack.Outputs.VpcId
+            TemplateURL: https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_prisubnet2layer.json
+            TimeoutInMinutes: 60
+    securitystack : 
+        Type : AWS::CloudFormation::Stack
+        Properties : 
+            Parameters :  
+                VpcId : !GetAtt vpcstack.Outputs.VpcId
+                AnyCidrBlock :  !Ref AnyCidrBlock
+            Tags :
+                - Key : Name
+                  Value : Security Template
+            TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_securitylayer.json             
+    databasestack : 
+        Type : AWS::CloudFormation::Stack
+        Properties : 
+            Parameters :  
+                DBServerSecurityGroup :  !GetAtt securitystack.Outputs.DBServerSecurityGroupId
+                DbInstanceType :  !Ref DbInstanceType
+                DbInstanceId : !Ref DbInstanceId 
+                SSHLocation :  !Ref SSHLocation 
+                SubnetId :  !GetAtt privatesubnet1stack.Outputs.PriSubnetId
+            Tags : 
+                - Key : Name
+                  Value : Database Template
+            TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_dblayer.json
+        DependsOn : [securitystack, privatesubnet1stack]      
+    routestack : 
+        Type : AWS::CloudFormation::Stack
+        Properties : 
+            Parameters :
+                EipAllocationId : !GetAtt EIPstack.AllocationId
+                PubSubnetCidrBlock :
+                    !Select [ "0", !Ref SubnetCidrBlock ]
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
+                VpcId : 
+                    !GetAtt vpcstack.Outputs.VpcId 
+                privatesubnet2 :  !GetAtt privatesubnet2stack.Outputs.PriSubnet2Id
+                privatesubnet :  !GetAtt privatesubnet1stack.Outputs.PriSubnetId
+                pubsubnet :  !GetAtt publicsubnetstack.Outputs.SubnetId
+            Tags : 
+                - Key : Name
+                  Value : Web Application Template
+            TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_routetables.json
+        DependsOn : [securitystack, privatesubnet1stack, privatesubnet2stack, publicsubnetstack]
+    appstack : 
+        Type : AWS::CloudFormation::Stack
+        Properties : 
+            Parameters :  
+                DBServerSecurityGroup :  !GetAtt securitystack.Outputs.AppServerSecurityGroup
+                AppInstanceType :  !Ref AppInstanceType
+                AppInstanceId : !Ref AppInstanceId 
+                SSHLocation :  !Ref SSHLocation 
+                SubnetId :  !GetAtt privatesubnet2stack.Outputs.PriSubnet2Id
+            Tags : 
+                - Key : Name
+                  Value : Web Application Template
+            TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_dsclayer.json
+        DependsOn : [routestack]             
+    applicationstack : 
+        Type : AWS::CloudFormation::Stack
+        Properties : 
+            Parameters :  
+                AZs :  !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ 1, Ref: AZs] ] ]
+                Subnets : !Join [ ",", [ !GetAtt privatesubnet1stack.Outputs.PriSubnetId, !GetAtt privatesubnet2stack.Outputs.PriSubnet2Id ] ]
+                ElbsecGroup :  !GetAtt securitystack.Outputs.ELBSecurityGroup 
+                AppInstanceType :  !Ref AppInstanceType 
+                AppInstanceId : !GetAtt appstack.Outputs.AppInstanceId 
+                SSHLocation :  !Ref SSHLocation  
+                InstsKey : !Ref InstsKey
+                VpcId :  !GetAtt vpcstack.Outputs.VpcId 
+            Tags :
+                - Key : Name
+                  Value : Application Template
+            TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_awsresourcelayer.json
+        DependsOn : [databasestack, appstack]
+Outputs:
+    EnvVar : 
+        Value : 
+            !Ref EnvType
+        Description : "ID for Environment variable"
+
+

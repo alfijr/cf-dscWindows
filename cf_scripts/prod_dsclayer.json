@@ -1,0 +1,225 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+        "DeploymentS3BucketName": {
+            "Default": "kc-os-scripts-12122016",
+            "Description": "S3 Bucket Name with initial configuration scripts, necessary distribute files and application builds",
+            "Type": "String",
+            "MinLength": "3",
+            "MaxLength": "30"
+        },
+        "DBServerSecurityGroup" : {
+            "Type" : "String"
+        },
+        "AppInstanceType": {
+            "Type": "String"
+        },
+        "AppInstanceId" : {
+            "Type": "String"
+        },
+        "SSHLocation": {
+            "Type": "String"
+        },
+        "SubnetId" : {
+            "Type" : "String"
+        }
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {         
+        "DSCInstRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/"
+            }
+        },
+        "DSCInstPolicyS3InitBucket": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "AccessToS3InitBucket",
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": "s3:ListBucket",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "DeploymentS3BucketName"
+                                        }
+                                    ]
+                                ]
+                            }
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": "s3:GetObject",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "DeploymentS3BucketName"
+                                        },
+                                        "/*"
+                                    ]
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "Roles": [
+                    {
+                        "Ref": "DSCInstRole"
+                    }
+                ]
+            }
+        },
+        "RootInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+            "Path": "/",
+            "Roles": [ {
+                "Ref": "DSCInstRole"
+            } ]
+            }
+        },
+        "appServer": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata" : {                
+                "AWS::CloudFormation::Init": {
+                  "configSets" : {
+                      "config" : [
+                          "rename", 
+                          "bootstrapDSC"
+                      ]
+                  },
+                  "rename" : {
+                      "commands": {
+                        "a-rename-computer"  : {
+                            "command" : "powershell.exe -Command Rename-Computer -newName Server1 -Restart",
+                            "waitAfterCompletion" : "forever"
+                        }
+                      }
+                  },
+                  "bootstrapDSC" : {
+                        "files" : {
+                            "c:\\cfn\\cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackName" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n"
+                                ]]}
+                            },
+                            "c:\\cfn\\hooks.d\\cfn-auto-reloader.conf" : {
+                                "content": { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.SharePointFoundation.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=cfn-init.exe -v -s ", { "Ref" : "AWS::StackName" },
+                                                                    " -r appServer",
+                                                                    " --region ", { "Ref" : "AWS::Region" }, "\n"
+                                ]]}
+                            },
+                            "C:\\DSC\\configinstance.ps1" : {
+                                "source" : "https://s3-us-west-2.amazonaws.com/kc-os-scripts-12122016/configinstance.ps1"
+                            }
+                        },
+                        "commands" : {
+                            "a-prep-server" : {
+                                "command" : "powershell.exe -Command Set-ExecutionPolicy -ExecutionPolicy Bypass",
+                                "waitAfterComplettion" : "0"
+                            },
+                            "b-set-server-state" : {
+                                "command" : {
+                                    "Fn::Join" : [
+                                        "",
+                                        [
+                                            "powershell.exe -Command c:\\DSC\\configinstance.ps1",
+                                            " -Region ",
+                                            {
+                                                "Ref" : "AWS::Region"
+                                            }
+                                        ]
+                                    ]
+                                },
+                                "waitAfterComplettion" : "0"
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "ImageId": { "Ref" : "AppInstanceId" },
+                "InstanceType": { "Ref" : "AppInstanceType"},
+                "AvailabilityZone" : "us-west-2b",
+                "Monitoring": "false",
+                "KeyName" : "elevenOstestkey",
+                "SubnetId" : {"Ref" : "SubnetId"},   
+                "IamInstanceProfile" :  
+                { 
+                    "Ref": "RootInstanceProfile" 
+                },
+                "UserData" : {    
+                    "Fn::Base64" : {"Fn::Join" : ["", [ 
+                       "<script>\n",
+                            "cfn-init.exe -v -c config -s ",
+                            {
+                                "Ref": "AWS::StackId"
+                            },
+                            " -r appServer",
+                            " --region ",
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            "\n",
+                        "</script>\n" 
+                    ]] }
+                }, 
+                "Tags": [
+                    {
+                        "Key": "name",
+                        "Value": "appServer"
+                    }
+                ]
+            }
+        }
+    },
+"Outputs": {
+        "AppServerDNS" : {
+            "Description": "The DNSName of the application Server Ec2 instance",  
+            "Value" : { "Fn::GetAtt" : [ "appServer", "PublicDnsName" ]}
+        },
+        "AppInstanceId" : {
+            "Description" : "Server ID",
+            "Value" :  { "Ref" : "appServer" }
+        }
+    }
+}

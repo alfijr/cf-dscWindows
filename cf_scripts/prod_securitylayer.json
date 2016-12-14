@@ -1,0 +1,188 @@
+
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+        "VpcId" : {
+            "Type" : "String"
+        },
+        "AnyCidrBlock" : {
+            "Type" : "String"
+        }    
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+        "basesecGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+            "GroupDescription" : "Simple security group",
+            "SecurityGroupIngress" : [
+                {
+                    "IpProtocol" : "tcp",
+                    "CidrIp"     : { "Ref" : "AnyCidrBlock"},
+                    "FromPort"   : "22",
+                    "ToPort"     : "22"
+                }
+            ],
+            "VpcId" : { "Ref" : "VpcId" },
+            "Tags" :  [
+                {
+                    "Key": "Name", 
+                    "Value" : "TestSecurityGroup"
+                }
+            ]
+          }
+        },
+        "RDGWsecGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+            "GroupDescription" : "RDGW security group",
+            "SecurityGroupIngress" : [
+                {
+                    "IpProtocol" : "tcp",
+                    "CidrIp"     : { "Ref" : "AnyCidrBlock"},
+                    "FromPort"   : "3389",
+                    "ToPort"     : "3389"
+                }
+            ],
+            "VpcId" : { "Ref" : "VpcId" },
+            "Tags" :  [
+                {
+                    "Key": "Name", 
+                    "Value" : "TestSecurityGroup"
+                }
+            ]
+          }
+        },
+        "AppServerSecGrp" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "This is the Security Group for AppServer.",
+                "SecurityGroupIngress" : [
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "22",
+                        "ToPort"     : "22",
+                        "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                    },
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "80",
+                        "ToPort"     : "80",
+                        "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                    },
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "443",
+                        "ToPort"     : "443",
+                        "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                    },
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "10051",
+                        "ToPort"     : "10051",
+                        "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                    }
+                ],
+                "VpcId" : { "Ref" : "VpcId" },
+                "Tags" :  [{
+                        "Key": "Name", 
+                        "Value" : "TestSecurityGroup"
+                    }]
+            }
+        },
+        "dbServerSecGrp" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "This is the Security Group for Database Server.",
+                "SecurityGroupIngress" : [
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "22",
+                        "ToPort"     : "22",
+                        "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                    },
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort"   : "13306",
+                        "ToPort"     : "13306",
+                        "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                    }
+                ],
+            "VpcId" : { "Ref" : "VpcId" },
+            "Tags" :  [{
+                    "Key": "Name", 
+                    "Value" : "TestSecurityGroup"
+                }]
+            }
+        },
+        "ElbsecGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+            "GroupDescription" : "Simple security group",
+            "SecurityGroupIngress" : [
+                {
+                    "IpProtocol": "tcp",
+                    "CidrIp": "0.0.0.0/0",
+                    "FromPort": "22",
+                    "ToPort": "22"
+                },
+                {
+                    "IpProtocol" : "tcp",
+                    "FromPort"   : "80",
+                    "ToPort"     : "80",
+                    "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                },
+                {
+                    "IpProtocol" : "tcp",
+                    "FromPort"   : "443",
+                    "ToPort"     : "443",
+                    "CidrIp"     : { "Ref" : "AnyCidrBlock"}
+                }
+            ],
+            "VpcId" : { "Ref" : "VpcId" },
+            "Tags" :  [
+                {
+                    "Key": "Name", 
+                    "Value" : "ELBSecurityGroup"
+                }
+            ]
+          }
+        }
+    },
+    "Outputs": {
+        "VPCSecurityGroup" : 
+        { 
+            "Value" : { "Ref" : "basesecGroup" },
+            "Description" : "ID for VPC Security Group"
+        },
+        "AppServerSecurityGroup" :
+        {
+            "Value" : { "Ref" : "AppServerSecGrp" },
+            "Description" : "ID for App Instance Security Group"
+        },
+        "DBServerSecurityGroup" :
+        {
+            "Value" : { "Ref" : "dbServerSecGrp" },
+            "Description" : "ID for Database Instance Security Group"
+        },
+        "ELBSecurityGroup" :
+        {
+            "Value" : { "Ref" : "ElbsecGroup" },
+            "Description" : "ID for Database Instance Security Group"
+        },
+        "DBServerSecurityGroupId" :
+        {
+            "Value" : { "Fn::GetAtt" : [ "dbServerSecGrp", "GroupId" ]}
+        }
+    }
+}
+    
