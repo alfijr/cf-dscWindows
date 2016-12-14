@@ -12,16 +12,17 @@
         "privatesubnet2": {
             "Type": "String"
         },
+        "privatesubnet3": {
+            "Type": "String"
+        },
         "pubsubnet": {
+            "Type": "String"
+        },
+        "pub2subnet": {
             "Type": "String"
         },
         "EipAllocationId": {
             "Type": "String"
-        },
-        "PubSubnetCidrBlock": {
-            "Type" : "String",
-            "Default" : "10.0.0.0/24",
-            "Description" : "IP Ranges (CIDR) for General Public Subnet"
         },
         "AZs" : {
             "Type" : "CommaDelimitedList",
@@ -83,6 +84,14 @@
             },
             "DependsOn" : "baseRoute"
         },
+        "baseRoute2Assoc" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref" : "baserouteTable"},
+                "SubnetId" : {"Ref" : "pub2subnet" }
+            },
+            "DependsOn" : "baseRoute"
+        },
         "natGateway" : {
             "Type" : "AWS::EC2::NatGateway",
             "Properties" : {
@@ -125,6 +134,14 @@
             "Properties" : {
                 "RouteTableId" : {"Ref" : "privateRouteTable"},
                 "SubnetId" : {"Ref" : "privatesubnet2" }
+            },
+            "DependsOn" : "privateRoute"
+        },
+        "privateRouteAssoc3" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : {"Ref" : "privateRouteTable"},
+                "SubnetId" : {"Ref" : "privatesubnet3" }
             },
             "DependsOn" : "privateRoute"
         }

@@ -1,0 +1,58 @@
+
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+        "EipAllocationId": {
+            "Type": "String"
+        },
+        "PubSubnetCidrBlock": {
+            "Type" : "String",
+            "Default" : "10.0.0.0/24",
+            "Description" : "IP Ranges (CIDR) for General Public Subnet"
+        },
+        "AZs" : {
+            "Type" : "CommaDelimitedList",
+            "Default" : "us-west-2a, us-west-2b",
+            "Description" : "The list of active AZ's"
+        },
+        "VpcId" : {
+            "Type" : "String"
+        }    
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+        "base2subnet": {
+          "Type": "AWS::EC2::Subnet",
+          "Properties": {
+            "VpcId": { "Ref" : "VpcId" },
+            "CidrBlock":  {"Ref": "PubSubnetCidrBlock"},
+            "AvailabilityZone": { "Fn::Select" : [ "1", {"Ref": "AZs"} ] },
+            "MapPublicIpOnLaunch" : "true",
+            "Tags": [
+                {
+                    "Key": "Name", 
+                    "Value" : "ApplicationPublicSubnet"
+                }
+            ]
+          }
+        }
+    },
+    "Outputs": {
+        "Subnet2Id" : {
+            "Value" : { "Ref" : "base2subnet"},
+            "Description" : "ID for Subnet"
+        }
+
+    }
+}
+
+    

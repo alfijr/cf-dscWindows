@@ -19,6 +19,11 @@
         },
         "SubnetId" : {
             "Type" : "String"
+        },
+        "AZs" : {
+            "Type" : "CommaDelimitedList",
+            "Default" : "us-west-2a, us-west-2b",
+            "Description" : "The list of active AZ's"
         }
     },
     "Mappings": {
@@ -413,7 +418,7 @@
             "Properties": {
                 "ImageId": { "Ref" : "DbInstanceId" },
                 "InstanceType": { "Ref" : "DbInstanceType"},
-                "AvailabilityZone" : "us-west-2a",
+                "AvailabilityZone" : { "Fn::Select" : [ "1", {"Ref": "AZs"} ] },
                 "Monitoring": "false",
                 "KeyName" : "elevenOstestkey",
                 "SubnetId" : {"Ref" : "SubnetId"},    

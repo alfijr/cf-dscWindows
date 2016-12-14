@@ -12,6 +12,9 @@
             "MinLength": "3",
             "MaxLength": "30"
         },
+        "Subnets" : {
+            "Type" : "CommaDelimitedList"
+        },
         "DBServerSecurityGroup" : {
             "Type" : "String"
         },
@@ -24,8 +27,10 @@
         "SSHLocation": {
             "Type": "String"
         },
-        "SubnetId" : {
-            "Type" : "String"
+        "AZs" : {
+            "Type" : "CommaDelimitedList",
+            "Default" : "us-west-2a, us-west-2b",
+            "Description" : "The list of active AZ's"
         }
     },
     "Mappings": {
@@ -111,7 +116,7 @@
             } ]
             }
         },
-        "appServer": {
+        "appServerZone1": {
             "Type": "AWS::EC2::Instance",
             "Metadata" : {                
                 "AWS::CloudFormation::Init": {
@@ -144,7 +149,7 @@
                                     "triggers=post.update\n",
                                     "path=Resources.SharePointFoundation.Metadata.AWS::CloudFormation::Init\n",
                                     "action=cfn-init.exe -v -s ", { "Ref" : "AWS::StackName" },
-                                                                    " -r appServer",
+                                                                    " -r appServerZone1",
                                                                     " --region ", { "Ref" : "AWS::Region" }, "\n"
                                 ]]}
                             },
@@ -179,10 +184,10 @@
             "Properties": {
                 "ImageId": { "Ref" : "AppInstanceId" },
                 "InstanceType": { "Ref" : "AppInstanceType"},
-                "AvailabilityZone" : "us-west-2b",
+                "AvailabilityZone" : { "Fn::Select" : [ "0", {"Ref": "AZs"} ] },
                 "Monitoring": "false",
                 "KeyName" : "elevenOstestkey",
-                "SubnetId" : {"Ref" : "SubnetId"},   
+                "SubnetId" : {"Fn::Select" : [ "0", {"Ref": "Subnets"} ]},   
                 "IamInstanceProfile" :  
                 { 
                     "Ref": "RootInstanceProfile" 
@@ -194,7 +199,7 @@
                             {
                                 "Ref": "AWS::StackId"
                             },
-                            " -r appServer",
+                            " -r appServerZone1",
                             " --region ",
                             {
                                 "Ref": "AWS::Region"
@@ -206,7 +211,107 @@
                 "Tags": [
                     {
                         "Key": "name",
-                        "Value": "appServer"
+                        "Value": "appServerZone1"
+                    }
+                ]
+            }
+        },
+        "appServerZone2": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata" : {                
+                "AWS::CloudFormation::Init": {
+                  "configSets" : {
+                      "config" : [
+                          "rename", 
+                          "bootstrapDSC"
+                      ]
+                  },
+                  "rename" : {
+                      "commands": {
+                        "a-rename-computer"  : {
+                            "command" : "powershell.exe -Command Rename-Computer -newName Server1 -Restart",
+                            "waitAfterCompletion" : "forever"
+                        }
+                      }
+                  },
+                  "bootstrapDSC" : {
+                        "files" : {
+                            "c:\\cfn\\cfn-hup.conf" : {
+                                "content" : { "Fn::Join" : ["", [
+                                    "[main]\n",
+                                    "stack=", { "Ref" : "AWS::StackName" }, "\n",
+                                    "region=", { "Ref" : "AWS::Region" }, "\n"
+                                ]]}
+                            },
+                            "c:\\cfn\\hooks.d\\cfn-auto-reloader.conf" : {
+                                "content": { "Fn::Join" : ["", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.SharePointFoundation.Metadata.AWS::CloudFormation::Init\n",
+                                    "action=cfn-init.exe -v -s ", { "Ref" : "AWS::StackName" },
+                                                                    " -r appServerZone2",
+                                                                    " --region ", { "Ref" : "AWS::Region" }, "\n"
+                                ]]}
+                            },
+                            "C:\\DSC\\configinstance.ps1" : {
+                                "source" : "https://s3-us-west-2.amazonaws.com/kc-os-scripts-12122016/configinstance.ps1"
+                            }
+                        },
+                        "commands" : {
+                            "a-prep-server" : {
+                                "command" : "powershell.exe -Command Set-ExecutionPolicy -ExecutionPolicy Bypass",
+                                "waitAfterComplettion" : "0"
+                            },
+                            "b-set-server-state" : {
+                                "command" : {
+                                    "Fn::Join" : [
+                                        "",
+                                        [
+                                            "powershell.exe -Command c:\\DSC\\configinstance.ps1",
+                                            " -Region ",
+                                            {
+                                                "Ref" : "AWS::Region"
+                                            }
+                                        ]
+                                    ]
+                                },
+                                "waitAfterComplettion" : "0"
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "ImageId": { "Ref" : "AppInstanceId" },
+                "InstanceType": { "Ref" : "AppInstanceType"},
+                "AvailabilityZone" : { "Fn::Select" : [ "1", {"Ref": "AZs"} ] },
+                "Monitoring": "false",
+                "KeyName" : "elevenOstestkey",
+                "SubnetId" : {"Fn::Select" : [ "1", {"Ref": "Subnets"} ]},   
+                "IamInstanceProfile" :  
+                { 
+                    "Ref": "RootInstanceProfile" 
+                },
+                "UserData" : {    
+                    "Fn::Base64" : {"Fn::Join" : ["", [ 
+                       "<script>\n",
+                            "cfn-init.exe -v -c config -s ",
+                            {
+                                "Ref": "AWS::StackId"
+                            },
+                            " -r appServerZone2",
+                            " --region ",
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            "\n",
+                        "</script>\n" 
+                    ]] }
+                }, 
+                "Tags": [
+                    {
+                        "Key": "name",
+                        "Value": "appServerZone2"
                     }
                 ]
             }
@@ -215,11 +320,19 @@
 "Outputs": {
         "AppServerDNS" : {
             "Description": "The DNSName of the application Server Ec2 instance",  
-            "Value" : { "Fn::GetAtt" : [ "appServer", "PublicDnsName" ]}
+            "Value" : { "Fn::GetAtt" : [ "appServerZone1", "PublicDnsName" ]}
         },
         "AppInstanceId" : {
             "Description" : "Server ID",
-            "Value" :  { "Ref" : "appServer" }
+            "Value" :  { "Ref" : "appServerZone1" }
+        },
+        "AppServerDNSZone2" : {
+            "Description": "The DNSName of the application Server Ec2 instance",  
+            "Value" : { "Fn::GetAtt" : [ "appServerZone2", "PublicDnsName" ]}
+        },
+        "AppInstanceIdZone2" : {
+            "Description" : "Server ID",
+            "Value" :  { "Ref" : "appServerZone2" }
         }
     }
 }

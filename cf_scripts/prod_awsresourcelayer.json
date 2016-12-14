@@ -21,6 +21,9 @@
         "AppInstanceId" : {
             "Type": "String"
         },
+        "AppInstanceIdZone2" : {
+            "Type": "String"
+        },
         "SSHLocation" : {  
             "Type": "String" 
         },
@@ -28,6 +31,9 @@
             "Type": "String"
         },
         "VpcId" : {
+            "Type" : "String"
+        },
+        "TargetGroupName" : {
             "Type" : "String"
         }
     },
@@ -68,14 +74,14 @@
                 "Matcher" : {
                 "HttpCode" : "200"
                 },
-                "Name": "MyTargets",
+                "Name": {"Ref": "TargetGroupName"},
                 "Port": 80,
                 "Protocol": "HTTP",
                 "TargetGroupAttributes": [{
                 "Key": "deregistration_delay.timeout_seconds",
                 "Value": "20"
                 }],
-                "Targets": [{"Id": {"Ref": "AppInstanceId"}, "Port": 80}],
+                "Targets": [{"Id": {"Ref": "AppInstanceId"}, "Port": 80}, {"Id": {"Ref": "AppInstanceIdZone2"}, "Port": 80}],
                 "UnhealthyThresholdCount": 3,
                 "VpcId": {"Ref" : "VpcId" },
                 "Tags" : [

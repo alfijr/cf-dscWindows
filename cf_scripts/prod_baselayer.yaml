@@ -153,6 +153,11 @@ Parameters:
         Default: elevenOs_Production_VPC
         Description : VPC Name
         Type: String
+
+    TargetGroupName : 
+        Default: myTargetGroup
+        Description : Name of Target Group. Must be Unique.
+        Type: String
    
     VpcCidrBlock: 
         Default: 10.0.0.0/16
@@ -163,10 +168,15 @@ Parameters:
         Default : us-west-2a, us-west-2b
         Description : "The list of active AZ's"
         
-    SubnetCidrBlock: 
+    PubSubnetCidrBlock: 
         Type : CommaDelimitedList
-        Default : 10.0.0.0/24, 10.0.1.0/24, 10.0.2.0/24,
+        Default : 10.0.0.0/24, 10.0.1.0/24,
         Description : "IP Ranges (CIDR) for General Public Subnets"
+
+    PriSubnetCidrBlock: 
+        Type : CommaDelimitedList
+        Default : 10.0.2.0/24, 10.0.3.0/24, 10.0.4.0/24
+        Description : "IP Ranges (CIDR) for Private Subnets starting with two web servers"
         
     InstsKey : 
         Default: elevenOstestkey
@@ -194,7 +204,7 @@ Resources:
                 AZs : 
                     !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref "AZs"]]]                   
                 SubnetCidrBlock : 
-                    !Join [ ",", [ !Select [ "0", !Ref SubnetCidrBlock ], !Select [ "1", !Ref SubnetCidrBlock ], !Select [ "2", !Ref SubnetCidrBlock]]]
+                    !Join [ ",", [ !Select [ "0", !Ref PubSubnetCidrBlock ], !Select [ "1", !Ref PubSubnetCidrBlock ], !Select [ "0", !Ref PriSubnetCidrBlock], !Select [ "1", !Ref PriSubnetCidrBlock]]]
             Tags : 
                 - Key : Name
                   Value : Base Template
@@ -210,7 +220,7 @@ Resources:
             Parameters: 
                 EipAllocationId : !GetAtt EIPstack.AllocationId
                 PubSubnetCidrBlock :
-                    !Select [ "0", !Ref SubnetCidrBlock ]
+                    !Select [ "0", !Ref PubSubnetCidrBlock ]
                 AZs : 
                     !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
                 VpcId : 
@@ -218,12 +228,26 @@ Resources:
             TemplateURL: https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_pubsubnetlayer.json
             TimeoutInMinutes: 60
         DependsOn: EIPstack
+    publicsubnet2stack: 
+        Type: AWS::CloudFormation::Stack
+        Properties: 
+            Parameters: 
+                EipAllocationId : !GetAtt EIPstack.AllocationId
+                PubSubnetCidrBlock :
+                    !Select [ "1", !Ref PubSubnetCidrBlock ]
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
+                VpcId : 
+                    !GetAtt vpcstack.Outputs.VpcId
+            TemplateURL: https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_pubsubnet2layer.json
+            TimeoutInMinutes: 60
+        DependsOn: EIPstack
     privatesubnet1stack : 
         Type : AWS::CloudFormation::Stack
         Properties :
             Parameters : 
                 PriSubnetCidrBlock : 
-                    !Select [ "1", !Ref SubnetCidrBlock ]               
+                    !Select [ "0", !Ref PriSubnetCidrBlock ]               
                 AZs :  
                     !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
                 VpcId :
@@ -235,11 +259,22 @@ Resources:
         Properties : 
             Parameters : 
                 PriSubnetCidrBlock :    
-                    !Select [ "2", !Ref SubnetCidrBlock ]
+                    !Select [ "1", !Ref PriSubnetCidrBlock ]
                 AZs : 
                     !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
                 VpcId : !GetAtt vpcstack.Outputs.VpcId
             TemplateURL: https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_prisubnet2layer.json
+            TimeoutInMinutes: 60
+    privatesubnet3stack: 
+        Type: AWS::CloudFormation::Stack
+        Properties : 
+            Parameters : 
+                PriSubnetCidrBlock :    
+                    !Select [ "2", !Ref PriSubnetCidrBlock ]
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
+                VpcId : !GetAtt vpcstack.Outputs.VpcId
+            TemplateURL: https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_prisubnet3layer.json
             TimeoutInMinutes: 60
     securitystack : 
         Type : AWS::CloudFormation::Stack
@@ -259,31 +294,33 @@ Resources:
                 DbInstanceType :  !Ref DbInstanceType
                 DbInstanceId : !Ref DbInstanceId 
                 SSHLocation :  !Ref SSHLocation 
-                SubnetId :  !GetAtt privatesubnet1stack.Outputs.PriSubnetId
+                SubnetId :  !GetAtt privatesubnet3stack.Outputs.PriSubnet3Id
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
             Tags : 
                 - Key : Name
                   Value : Database Template
             TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_dblayer.json
-        DependsOn : [securitystack, privatesubnet1stack]      
+        DependsOn : [securitystack, privatesubnet3stack]      
     routestack : 
         Type : AWS::CloudFormation::Stack
         Properties : 
             Parameters :
                 EipAllocationId : !GetAtt EIPstack.AllocationId
-                PubSubnetCidrBlock :
-                    !Select [ "0", !Ref SubnetCidrBlock ]
                 AZs : 
                     !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
                 VpcId : 
                     !GetAtt vpcstack.Outputs.VpcId 
+                privatesubnet3 : !GetAtt privatesubnet3stack.Outputs.PriSubnet3Id
                 privatesubnet2 :  !GetAtt privatesubnet2stack.Outputs.PriSubnet2Id
                 privatesubnet :  !GetAtt privatesubnet1stack.Outputs.PriSubnetId
                 pubsubnet :  !GetAtt publicsubnetstack.Outputs.SubnetId
+                pub2subnet :  !GetAtt publicsubnet2stack.Outputs.Subnet2Id
             Tags : 
                 - Key : Name
                   Value : Web Application Template
             TemplateURL : https://s3-us-west-2.amazonaws.com/eleven-wireless-code/prod_routetables.json
-        DependsOn : [securitystack, privatesubnet1stack, privatesubnet2stack, publicsubnetstack]
+        DependsOn : [securitystack, privatesubnet1stack, privatesubnet2stack, privatesubnet3stack, publicsubnetstack]
     appstack : 
         Type : AWS::CloudFormation::Stack
         Properties : 
@@ -292,7 +329,9 @@ Resources:
                 AppInstanceType :  !Ref AppInstanceType
                 AppInstanceId : !Ref AppInstanceId 
                 SSHLocation :  !Ref SSHLocation 
-                SubnetId :  !GetAtt privatesubnet2stack.Outputs.PriSubnet2Id
+                Subnets : !Join [ ",", [ !GetAtt privatesubnet1stack.Outputs.PriSubnetId, !GetAtt privatesubnet2stack.Outputs.PriSubnet2Id ] ]
+                AZs : 
+                    !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ "1", !Ref AZs] ] ]
             Tags : 
                 - Key : Name
                   Value : Web Application Template
@@ -303,13 +342,15 @@ Resources:
         Properties : 
             Parameters :  
                 AZs :  !Join [ ",", [ !Select [ "0", !Ref AZs ], !Select [ 1, Ref: AZs] ] ]
-                Subnets : !Join [ ",", [ !GetAtt privatesubnet1stack.Outputs.PriSubnetId, !GetAtt privatesubnet2stack.Outputs.PriSubnet2Id ] ]
+                Subnets : !Join [ ",", [ !GetAtt publicsubnetstack.Outputs.SubnetId, !GetAtt publicsubnet2stack.Outputs.Subnet2Id ] ]
                 ElbsecGroup :  !GetAtt securitystack.Outputs.ELBSecurityGroup 
                 AppInstanceType :  !Ref AppInstanceType 
-                AppInstanceId : !GetAtt appstack.Outputs.AppInstanceId 
+                AppInstanceId : !GetAtt appstack.Outputs.AppInstanceId
+                AppInstanceIdZone2 : !GetAtt appstack.Outputs.AppInstanceIdZone2  
                 SSHLocation :  !Ref SSHLocation  
                 InstsKey : !Ref InstsKey
                 VpcId :  !GetAtt vpcstack.Outputs.VpcId 
+                TargetGroupName : !Ref TargetGroupName
             Tags :
                 - Key : Name
                   Value : Application Template
